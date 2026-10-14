@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 
 void head(FILE *fp, int n)
 {
@@ -19,12 +20,20 @@ void head(FILE *fp, int n)
 int main(int argc, char *argv[])
 {
 
-    int n = 10;
+    long n = 10;
     int first = 1;
 
     if (argc >= 3 && strcmp(argv[1], "-n") == 0)
     {
-        n = atoi(argv[2]);
+        char *end;
+        n = strtol(argv[2], &end, 10);
+
+        if (n < 0 || n > INT_MAX || end == argv[2] || *end != '\0')
+        {
+            fprintf(stderr, "myhead: invalid number of lines: '%s'\n", argv[2]);
+            return EXIT_FAILURE;
+        }
+
         first = 3;
     }
 
