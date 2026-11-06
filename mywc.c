@@ -1,44 +1,63 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
+#include <stdbool.h>
 
-void count(FILE *fp, long *byte_counter, long *line_counter)
+struct Counts lwc(FILE *fp, bool lines, bool words, bool bytes);
+
+struct Counts
 {
-    int ch;
-    while ((ch = getc(fp)) != EOF)
-    {
-
-        if (ch == '\n')
-            (*line_counter)++;
-
-        (*byte_counter)++;
-    }
-}
+    long lines;
+    long words;
+    long bytes;
+};
 
 int main(int argc, char *argv[])
 {
-    long line_counter = 0;
-    long byte_counter = 0;
+
+    // FILE *fp;
+    printf("%s\n", argv[0]);
 
     if (argc == 1)
     {
-        count(stdin, &byte_counter, &line_counter);
-        printf("%ld %ld\n", line_counter, byte_counter);
-        return EXIT_SUCCESS;
+        struct Counts c = lwc(stdin, true, true, true);
+
+        printf("%ld %ld %ld", c.lines, c.words, c.bytes);
     }
 
-    FILE *fp = fopen(argv[1], "r");
-
-    if (fp == NULL)
-    {
-        fprintf(stderr, "mywc: ");
-        perror(argv[1]);
-        return EXIT_FAILURE;
-    }
-
-    count(fp, &byte_counter, &line_counter);
-
-    printf("%ld %ld %s\n", line_counter, byte_counter, argv[1]);
-    fclose(fp);
+    // fclose(fp);
 
     return EXIT_SUCCESS;
+}
+
+struct Counts lwc(FILE *fp, bool lines, bool words, bool bytes)
+{
+
+    struct Counts c = {0, 0, 0};
+    int ch;
+    bool in_word = false;
+
+    while ((ch = getc(fp)) != EOF)
+    {
+
+        if (bytes)
+            c.bytes++;
+
+        if (lines && ch == '\n')
+        {
+            c.lines++;
+        }
+
+        if (isspace(ch))
+        {
+            in_word = false;
+        }
+        else if (words && !in_word)
+        {
+            in_word = true;
+            c.words++;
+        }
+    }
+
+    return c;
 }
