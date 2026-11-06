@@ -15,17 +15,56 @@ struct Counts
 int main(int argc, char *argv[])
 {
 
-    // FILE *fp;
-    printf("%s\n", argv[0]);
+    bool saw_l = false;
+    bool saw_w = false;
+    bool saw_c = false;
 
-    if (argc == 1)
+    for (int i = 1; i < argc; i++)
     {
-        struct Counts c = lwc(stdin, true, true, true);
-
-        printf("%ld %ld %ld", c.lines, c.words, c.bytes);
+        if (argv[i][0] == '-')
+        {
+            for (int j = 1; argv[i][j] != '\0'; j++)
+            {
+                if (argv[i][j] == 'l')
+                    saw_l = true;
+                else if (argv[i][j] == 'w')
+                    saw_w = true;
+                else if (argv[i][j] == 'c')
+                    saw_c = true;
+                else
+                {
+                    fprintf(stderr, "mywc: unexpected argument %c found\n", argv[i][j]);
+                    return EXIT_FAILURE;
+                }
+            }
+        }
     }
 
-    // fclose(fp);
+    struct Counts c = lwc(stdin, true, true, true);
+
+    if (saw_l)
+    {
+        printf("%ld", c.lines);
+        if (saw_w || saw_c)
+            putchar(' ');
+        else
+            putchar('\n');
+    }
+
+    if (saw_w)
+    {
+        printf("%ld", c.words);
+        if (saw_c)
+            putchar(' ');
+        else
+            putchar('\n');
+    }
+
+    if (saw_c)
+        printf("%ld\n", c.bytes);
+
+    if (!saw_l && !saw_w && !saw_c)
+        printf("%ld %ld %ld\n", c.lines, c.words, c.bytes);
 
     return EXIT_SUCCESS;
 }
