@@ -9,31 +9,34 @@ struct Counts
     long bytes;
 };
 
-struct Counts lwc(FILE *fp, bool lines, bool words, bool bytes);
-void print_counts(struct Counts c, bool saw_l, bool saw_w, bool saw_c, const char *name);
+struct Counts lwc(FILE *fp, bool *arr);
+void print_counts(struct Counts c, bool *arr, const char *name);
 
 int main(int argc, char *argv[])
 {
 
-    bool saw_l = false;
-    bool saw_w = false;
-    bool saw_c = false;
-    bool saw_files = false;
-
+    bool saw_flags[] = {false, false, false};
+    bool no_flags = true;
     struct Counts c;
 
+    // Detect l w c
     for (int i = 1; i < argc; i++)
     {
         if (argv[i][0] == '-')
         {
+
             for (int j = 1; argv[i][j] != '\0'; j++)
             {
+                no_flags = false;
                 if (argv[i][j] == 'l')
-                    saw_l = true;
+                    saw_flags[0] = true;
+
                 else if (argv[i][j] == 'w')
-                    saw_w = true;
+                    saw_flags[1] = true;
+
                 else if (argv[i][j] == 'c')
-                    saw_c = true;
+                    saw_flags[2] = true;
+
                 else
                 {
                     fprintf(stderr, "mywc: unexpected argument %c found\n", argv[i][j]);
@@ -43,20 +46,29 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (!saw_l && !saw_w && !saw_c)
+    if (no_flags)
     {
-        saw_l = true;
-        saw_w = true;
-        saw_c = true;
+        for (int i = 0; i < 3; i++)
+        {
+            saw_flags[i] = true;
+        }
     }
 
     bool fp_failed = false;
 
+    long count_files = 0;
+    struct Counts total;
+    total.lines = 0;
+    total.words = 0;
+    total.bytes = 0;
+
+    // detect file / stdin
     for (int i = 1; i < argc; i++)
     {
         if (argv[i][0] != '-')
         {
-            saw_files = true;
+            count_files++;
+
             FILE *fp = fopen(argv[i], "r");
             if (fp == NULL)
             {
@@ -66,7 +78,11 @@ int main(int argc, char *argv[])
                 continue;
             }
 
-            c = lwc(fp, saw_l, saw_w, saw_c);
+            c = lwc(fp, saw_flags);
+            total.lines += c.lines;
+            total.words += c.words;
+            total.bytes += c.bytes;
+
             if (ferror(fp))
             {
                 fprintf(stderr, "mywc: ");
@@ -76,25 +92,30 @@ int main(int argc, char *argv[])
                 continue;
             }
 
-            print_counts(c, saw_l, saw_w, saw_c, argv[i]);
+            print_counts(c, saw_flags, argv[i]);
             fclose(fp);
         }
     }
 
+    if (count_files > 1)
+    {
+        print_counts(total, saw_flags, "total");
+    }
+
+
     if (fp_failed)
         return EXIT_FAILURE;
 
-    if (!saw_files)
+    if (count_files == 0)
     {
-        c = lwc(stdin, saw_l, saw_w, saw_c);
-        print_counts(c, saw_l, saw_w, saw_c, NULL);
+        c = lwc(stdin, saw_flags);
+        print_counts(c, saw_flags, NULL);
     }
     return EXIT_SUCCESS;
 }
 
-struct Counts lwc(FILE *fp, bool lines, bool words, bool bytes)
+struct Counts lwc(FILE *fp, bool *arr)
 {
-
     struct Counts c = {0, 0, 0};
     int ch;
     bool in_word = false;
@@ -102,10 +123,10 @@ struct Counts lwc(FILE *fp, bool lines, bool words, bool bytes)
     while ((ch = getc(fp)) != EOF)
     {
 
-        if (bytes)
+        if (arr[2])
             c.bytes++;
 
-        if (lines && ch == '\n')
+        if (arr[0] && ch == '\n')
         {
             c.lines++;
         }
@@ -114,7 +135,7 @@ struct Counts lwc(FILE *fp, bool lines, bool words, bool bytes)
         {
             in_word = false;
         }
-        else if (words && !in_word)
+        else if (arr[1] && !in_word)
         {
             in_word = true;
             c.words++;
@@ -124,35 +145,30 @@ struct Counts lwc(FILE *fp, bool lines, bool words, bool bytes)
     return c;
 }
 
-void print_counts(struct Counts c, bool saw_l, bool saw_w, bool saw_c, const char *name)
+void print_counts(struct Counts c, bool *arr, const char *name)
 {
-    if (saw_l)
-    {
-        printf("%ld", c.lines);
-    }
 
-    if (saw_w)
-    {
-        if (saw_l)
-            putchar(' ');
-        printf("%ld", c.words);
-    }
+    long counts[] = {c.lines, c.words, c.bytes};
+    bool printed = false;
 
-    if (saw_c)
+    for (int i = 0; i < 3; i++)
     {
-        if (saw_w || saw_l)
-            putchar(' ');
-        printf("%ld", c.bytes);
+        if (arr[i])
+        {
+            if (printed)
+            {
+                putchar(' ');
+            }
+            printf("%ld", counts[i]);
+            printed = true;
+        }
     }
 
     if (name != NULL)
     {
         putchar(' ');
-        printf("%s\n", name);
+        printf("%s", name);
     }
 
-    else
-    {
-        putchar('\n');
-    }
+    putchar('\n');
 }
