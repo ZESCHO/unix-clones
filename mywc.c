@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <stdbool.h>
+#include <sys/stat.h>
 struct Counts
 {
     long lines;
@@ -10,7 +11,8 @@ struct Counts
 };
 
 struct Counts lwc(FILE *fp, bool *arr);
-void print_counts(struct Counts c, bool *arr, const char *name);
+void print_counts(struct Counts c, bool *arr, int padding, const char *name);
+int count_dig(long n);
 
 int main(int argc, char *argv[])
 {
@@ -62,12 +64,46 @@ int main(int argc, char *argv[])
     total.words = 0;
     total.bytes = 0;
 
+    int count_flags = 0;
+    for (int i = 0; i < 3; i++)
+    {
+        if (saw_flags[i])
+            count_flags++;
+    }
+
+    long sum = 0;
+    bool saw_non_regular_file = false;
+
+    for (int i = 1; i < argc; i++)
+    {
+        struct stat st;
+        if (argv[i][0] != '-')
+
+        {
+            count_files++;
+            if (stat(argv[i], &st) == 0)
+            {
+                sum += st.st_size;
+                if (!S_ISREG(st.st_mode))
+                    saw_non_regular_file = true;
+            }
+        }
+    }
+
+    int width = 0;
+
+    if (count_flags == 1 && count_files <= 1)
+        width = 1;
+    else if (count_files == 0 || saw_non_regular_file)
+        width = 7;
+    else
+        width = count_dig(sum);
+
     // detect file / stdin
     for (int i = 1; i < argc; i++)
     {
         if (argv[i][0] != '-')
         {
-            count_files++;
 
             FILE *fp = fopen(argv[i], "r");
             if (fp == NULL)
@@ -83,7 +119,7 @@ int main(int argc, char *argv[])
             total.words += c.words;
             total.bytes += c.bytes;
 
-            if (ferror(fp))
+            if (ferror(fp) != 0)
             {
                 fprintf(stderr, "mywc: ");
                 perror(argv[i]);
@@ -92,16 +128,16 @@ int main(int argc, char *argv[])
                 continue;
             }
 
-            print_counts(c, saw_flags, argv[i]);
+            print_counts(c, saw_flags, width, argv[i]);
+
             fclose(fp);
         }
     }
 
     if (count_files > 1)
     {
-        print_counts(total, saw_flags, "total");
+        print_counts(total, saw_flags, width, "total");
     }
-
 
     if (fp_failed)
         return EXIT_FAILURE;
@@ -109,8 +145,9 @@ int main(int argc, char *argv[])
     if (count_files == 0)
     {
         c = lwc(stdin, saw_flags);
-        print_counts(c, saw_flags, NULL);
+        print_counts(c, saw_flags, width, NULL);
     }
+
     return EXIT_SUCCESS;
 }
 
@@ -145,7 +182,7 @@ struct Counts lwc(FILE *fp, bool *arr)
     return c;
 }
 
-void print_counts(struct Counts c, bool *arr, const char *name)
+void print_counts(struct Counts c, bool *arr, int padding, const char *name)
 {
 
     long counts[] = {c.lines, c.words, c.bytes};
@@ -159,7 +196,7 @@ void print_counts(struct Counts c, bool *arr, const char *name)
             {
                 putchar(' ');
             }
-            printf("%ld", counts[i]);
+            printf("%*ld", padding, counts[i]);
             printed = true;
         }
     }
@@ -171,4 +208,19 @@ void print_counts(struct Counts c, bool *arr, const char *name)
     }
 
     putchar('\n');
+}
+
+int count_dig(long n)
+{
+    if (n == 0)
+        return 1;
+
+    int count = 0;
+    while (n != 0)
+    {
+        count++;
+        n /= 10;
+    }
+
+    return count;
 }
